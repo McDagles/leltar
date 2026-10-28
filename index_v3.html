@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leltározó</title>
+<style>
+:root{--bg:#eef1f4;--panel:#fff;--ink:#14202b;--mute:#5b6b79;--line:#d3dae1;--acc:#0a6a86;--acc-ink:#fff;
+--ok:#17603a;--ok-bg:#d9f1e2;--warn:#7a4b00;--warn-bg:#fdebc4;--bad:#8a1c1c;--bad-bg:#f9d7d7;--idle-bg:#e1e8ee;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#11171c;--panel:#192127;--ink:#e6ebef;--mute:#93a3b0;--line:#2b3741;--acc:#5cc3de;--acc-ink:#0b1a21;
+--ok:#9be3b9;--ok-bg:#16382a;--warn:#f5d38a;--warn-bg:#3f3112;--bad:#ffb4b4;--bad-bg:#4a1d1d;--idle-bg:#26323b;color-scheme:dark}}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,"Segoe UI",Roboto,sans-serif}
+main{max-width:820px;margin:0 auto;padding:18px 14px 48px}
+h1{font-size:1.5rem;margin:0 0 10px}h2{font-size:1rem;margin:14px 0 6px}
+[hidden]{display:none!important}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.stats span{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:3px 12px;font-size:.9rem}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tab{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+.tab[aria-selected=true]{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+label.big{display:block;font-weight:700;margin-bottom:4px}
+input[type=text]{width:100%;font:inherit;font-size:1.5rem;padding:10px 12px;border-radius:9px;border:2px solid var(--line);background:var(--bg);color:var(--ink)}
+input[type=text]:focus{outline:none;border-color:var(--acc)}
+input:disabled{opacity:.45}
+.card{margin:12px 0;border-radius:10px;padding:12px 14px;background:var(--idle-bg);min-height:76px}
+.card .t{font-size:1.25rem;font-weight:700;word-break:break-word}.card .s{font-size:.95rem}
+.card.ok{background:var(--ok-bg);color:var(--ok)}.card.warn{background:var(--warn-bg);color:var(--warn)}.card.bad{background:var(--bad-bg);color:var(--bad)}
+.hint{font-size:.85rem;color:var(--mute);margin:6px 0 0}
+.opts{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px}.opts label{display:flex;gap:6px;align-items:center;font-size:.92rem}
+button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:9px 16px;background:var(--acc);color:var(--acc-ink);cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}button.mini{padding:2px 9px;font-size:.85rem}
+button:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line);font-size:.93rem}li:last-child{border-bottom:0}
+li .id{font-weight:700}li .nm{flex:1;color:var(--mute);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}li .q{font-weight:700}
+textarea{width:100%;min-height:110px;font:inherit;font-size:.9rem;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg);color:var(--ink)}
+select{font:inherit;padding:6px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--ink);max-width:100%}
+.maps{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.maps label{font-size:.88rem;color:var(--mute);display:flex;flex-direction:column;gap:2px}
+.warnbox{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 12px;margin:8px 0;font-size:.9rem}
+details summary{cursor:pointer;font-weight:700}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.vid{border-radius:12px;overflow:hidden;background:#000;margin:10px 0}video{display:block;width:100%;max-height:38vh;object-fit:cover}textarea{font-size:16px!important}
+</style>
+</head>
+<body>
+<main>
+<h1>Leltározó</h1>
+<div class="stats" id="stats"></div>
+<div class="tabs" role="tablist">
+  <button class="tab" data-s="1">1. Betöltés</button>
+  <button class="tab" data-s="2">2. Csipogás</button>
+  <button class="tab" data-s="3">3. Összegzés és mentés</button>
+</div>
+
+<div class="panel row">
+  <b>Munkafájl:</b>
+  <button id="wfSave" type="button" class="ghost">Mentés</button>
+  <button id="wfOpen" type="button" class="ghost">Megnyitás</button>
+  <input type="file" id="wfFile" accept=".json,application/json" hidden>
+  <span class="hint" style="flex-basis:100%">A munkafájl tartalmazza a betöltött leltárt és az eddigi csipogásokat, így át tudod vinni gépről telefonra és vissza.</span>
+</div>
+
+<section id="s1">
+  <div class="panel">
+    <h2 style="margin-top:0">A leltár betöltése</h2>
+    <p class="hint">Excelben jelöld ki a leltár teljes táblázatát a fejléccel együtt (Ctrl+C), és illeszd be ide (Ctrl+V). Minden oszlop megmarad a mentett fájlban. A betöltés nem módosítja az eredeti fájlt.</p>
+    <textarea id="paste" placeholder="Ide illeszd be"></textarea>
+    <div class="maps" id="maps" hidden>
+      <label>Adagazonosító oszlopa <select id="mId"></select></label>
+      <label>Cikk neve <select id="mName"></select></label>
+      <label>Könyv szerinti mennyiség <select id="mQty"></select></label>
+    </div>
+    <div id="warn"></div>
+    <div class="row"><button id="apply" hidden>Betöltés</button><span class="hint" id="impMsg"></span></div>
+    <p class="hint" id="loaded"></p>
+  </div>
+</section>
+
+<section id="s2" hidden>
+  <div class="panel">
+    <label class="big" for="scan">Csipogj, vagy írd be az azonosítót (a vége is elég)</label>
+    <input type="text" id="scan" autocomplete="off">
+    <div class="row" style="margin:8px 0"><button id="camBtn" type="button">📷 Kamera indítása</button><button id="camStop" class="ghost" type="button" hidden>Kamera leállítása</button></div>
+    <div class="vid" id="vbox" hidden><video id="v" playsinline muted autoplay></video></div>
+    <div class="card" id="card"><div class="t">Készen áll</div><div class="s">Olvasd be az első vonalkódot.</div></div>
+    <label class="big" for="qty">Mennyiség (fm)</label>
+    <input type="text" id="qty" inputmode="decimal" autocomplete="off" disabled>
+    <div class="row" style="margin-top:8px"><button id="qtyOk" type="button">✔ Mentés</button><button id="qtyNo" class="ghost" type="button">Mégsem</button></div>
+    <p class="hint">Enter = mentés, és a kurzor visszaugrik a csipogó mezőbe. Esc = mégsem.</p>
+    <div class="opts">
+      <label><input type="checkbox" id="askQty" checked> Mennyiséget is rögzítek</label>
+      <label><input type="checkbox" id="showBook"> Könyv szerinti mennyiség mutatása</label>
+      <label><input type="checkbox" id="sound" checked> Hang</label>
+    </div>
+  </div>
+  <div class="panel" id="missBoxWrap" hidden>
+    <details><summary>Még nincs meg: <span id="missN">0</span> tétel</summary><ul id="missList"></ul></details>
+  </div>
+  <div class="panel"><h2 style="margin-top:0">Utoljára rögzítettek</h2><ul id="recent"></ul><p class="hint" id="recentEmpty">Még nincs rögzített tétel.</p></div>
+</section>
+
+<section id="s3" hidden>
+  <div class="panel">
+    <div id="sum"></div>
+    <label class="opts" id="okWrap" style="display:flex"><input type="checkbox" id="okMiss"> Átnéztem a hiányzók listáját, ezek kerülhetnek a „Kivezetett" lapra</label>
+    <div class="row" style="margin-top:12px"><button id="export">Mentés Excelbe (.xlsx)</button><button class="ghost" id="newInv">Új leltár indítása</button></div>
+    <p class="hint">A fájlban három lap lesz: „Leltár" (a megvan tételek, minden eredeti oszloppal), „Kivezetett" (a nincs meg tételek) és „Leltáron kívüli". Az eredeti fájlodat ez nem érinti. Színezést és formázást nem visz át, csak az adatokat.</p>
+  </div>
+</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+/*XLSX_START*/
+function makeXlsx(sheets){
+  var enc=new TextEncoder();
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]}).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'')}
+  function col(n){var s='';n++;while(n>0){var m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26)}return s}
+  function sheetXml(rows){
+    var w=[],x='',mc=1;
+    rows.forEach(function(r,ri){
+      x+='<row r="'+(ri+1)+'">';
+      r.forEach(function(v,ci){
+        if(v===''||v==null)return;
+        mc=Math.max(mc,ci+1);
+        var ref=col(ci)+(ri+1);
+        w[ci]=Math.max(w[ci]||8,Math.min(String(v).length+2,50));
+        if(typeof v==='number')x+='<c r="'+ref+'"><v>'+v+'</v></c>';
+        else x+='<c r="'+ref+'" t="inlineStr"'+(ri===0?' s="1"':'')+'><is><t xml:space="preserve">'+esc(v)+'</t></is></c>';
+      });
+      x+='</row>';
+    });
+    var cols='';
+    w.forEach(function(v,i){if(v)cols+='<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+v+'" customWidth="1"/>'});
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'+(cols?'<cols>'+cols+'</cols>':'')+'<sheetData>'+x+'</sheetData>'+(rows.length>1?'<autoFilter ref="A1:'+col(mc-1)+rows.length+'"/>':'')+'</worksheet>';
+  }
+  var NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main', RN='http://schemas.openxmlformats.org/officeDocument/2006/relationships', PR='http://schemas.openxmlformats.org/package/2006/relationships';
+  var H='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  var files=[], ct='', sh='', rl='';
+  sheets.forEach(function(s,i){
+    var n=i+1;
+    files.push({n:'xl/worksheets/sheet'+n+'.xml',d:enc.encode(sheetXml(s.rows))});
+    ct+='<Override PartName="/xl/worksheets/sheet'+n+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+    sh+='<sheet name="'+esc(s.name)+'" sheetId="'+n+'" r:id="rId'+n+'"/>';
+    rl+='<Relationship Id="rId'+n+'" Type="'+RN+'/worksheet" Target="worksheets/sheet'+n+'.xml"/>';
+  });
+  var sn=sheets.length+1;
+  rl+='<Relationship Id="rId'+sn+'" Type="'+RN+'/styles" Target="styles.xml"/>';
+  files.unshift(
+    {n:'[Content_Types].xml',d:enc.encode(H+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+ct+'</Types>')},
+    {n:'_rels/.rels',d:enc.encode(H+'<Relationships xmlns="'+PR+'"><Relationship Id="rId1" Type="'+RN+'/officeDocument" Target="xl/workbook.xml"/></Relationships>')},
+    {n:'xl/workbook.xml',d:enc.encode(H+'<workbook xmlns="'+NS+'" xmlns:r="'+RN+'"><sheets>'+sh+'</sheets></workbook>')},
+    {n:'xl/_rels/workbook.xml.rels',d:enc.encode(H+'<Relationships xmlns="'+PR+'">'+rl+'</Relationships>')},
+    {n:'xl/styles.xml',d:enc.encode(H+'<styleSheet xmlns="'+NS+'"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDDE6EC"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>')}
+  );
+  var T=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;T[n]=c>>>0}
+  function crc(b){var c=0xFFFFFFFF;for(var i=0;i<b.length;i++)c=T[(c^b[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+  var d=new Date(),tm=(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1),dt=((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate();
+  var parts=[],cen=[],off=0;
+  files.forEach(function(f){
+    var nm=enc.encode(f.n),cc=crc(f.d),sz=f.d.length;
+    var h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(10,tm,true);h.setUint16(12,dt,true);h.setUint32(14,cc,true);h.setUint32(18,sz,true);h.setUint32(22,sz,true);h.setUint16(26,nm.length,true);
+    parts.push(new Uint8Array(h.buffer),nm,f.d);
+    var g=new DataView(new ArrayBuffer(46));
+    g.setUint32(0,0x02014b50,true);g.setUint16(4,20,true);g.setUint16(6,20,true);g.setUint16(8,0x0800,true);g.setUint16(12,tm,true);g.setUint16(14,dt,true);g.setUint32(16,cc,true);g.setUint32(20,sz,true);g.setUint32(24,sz,true);g.setUint16(28,nm.length,true);g.setUint32(42,off,true);
+    cen.push(new Uint8Array(g.buffer),nm);
+    off+=30+nm.length+sz;
+  });
+  var csz=0;cen.forEach(function(p){csz+=p.length});
+  var e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,csz,true);e.setUint32(16,off,true);
+  var all=parts.concat(cen,[new Uint8Array(e.buffer)]),tot=0;all.forEach(function(p){tot+=p.length});
+  var out=new Uint8Array(tot),pos=0;all.forEach(function(p){out.set(p,pos);pos+=p.length});
+  return out;
+}
+/*XLSX_END*/
+
+(function(){
+  var $=function(i){return document.getElementById(i)};
+  var KB='leltar.book.v2', KS='leltar.scans.v2';
+  var book=null, scans={}, cur=null, parsed=null, ac=null;
+  var scan=$('scan'), qty=$('qty'), card=$('card');
+
+  function norm(s){return String(s==null?'':s).trim().toUpperCase()}
+  function fmtQ(q){return q==null||q===''?'':String(q).replace('.',',')}
+  function toNum(s){var n=parseFloat(String(s).replace(/\s/g,'').replace(',','.'));return isFinite(n)?n:null}
+  function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+
+  function load(){
+    try{var b=localStorage.getItem(KB);if(b)book=JSON.parse(b)}catch(e){}
+    try{var s=localStorage.getItem(KS);if(s)scans=JSON.parse(s)||{}}catch(e){}
+    index();
+  }
+  function persist(){try{localStorage.setItem(KS,JSON.stringify(scans))}catch(e){setCard('warn','Nem sikerült menteni a böngészőbe','Készíts most Excel-mentést a 3. lépésben.')}}
+  function index(){
+    if(!book)return;
+    book.map={};
+    book.rows.forEach(function(r){r.key=norm(r.id);if(!book.map[r.key])book.map[r.key]=r});
+  }
+  function beep(ok){
+    if(!$('sound').checked)return;
+    try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+      var o=ac.createOscillator(),g=ac.createGain();o.frequency.value=ok?880:200;g.gain.value=.08;
+      o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+(ok?.08:.3))}catch(e){}
+  }
+  function setCard(cls,t,s){
+    card.className='card '+cls;card.innerHTML='';
+    card.appendChild(el('div','t',t));if(s)card.appendChild(el('div','s',s));
+  }
+  function nextScan(){cur=null;scan.value='';qty.value='';qty.disabled=true;if(reader){if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()}else scan.focus()}
+
+  function processScan(raw,fromCam){
+    var id=String(raw).trim();if(!id)return;
+    var key=norm(id),row=book&&book.map?book.map[key]||null:null,note='';
+    if(!row&&book&&book.map&&!fromCam&&key.length>=3){
+      var m=Object.keys(book.map).filter(function(k){return k.slice(-key.length)===key});
+      if(m.length===1){row=book.map[m[0]];key=m[0];id=row.id;note='Végződés alapján találtam. '}
+      else if(m.length>1){beep(false);setCard('warn','Több tétel is erre végződik ('+m.length+')','Írj be többet a végéből.');scan.select();return}
+    }
+    var ex=scans[key]||null;
+    var good=!book||!!row;
+    cur={id:id,key:key,row:row};
+    var sub=[];
+    if(row)sub.push(note+id);
+    if(book&&!row)sub.push('Nincs a leltárban. Rögzítheted, külön lapra kerül.');
+    if(row&&$('showBook').checked&&row.qty!=='')sub.push('Könyv szerint: '+row.qty);
+    if(ex)sub.push('Már rögzítve volt'+(ex.qty!=null?': '+fmtQ(ex.qty):'')+'. Az új érték felülírja.');
+    var cls=!good?'bad':(ex?'warn':'ok'), title=row&&row.name?row.name:id;
+    beep(good&&!ex);
+    if(!$('askQty').checked){
+      save(id,null);setCard(cls,(good?'✓ ':'')+title,sub.join(' · '));nextScan();
+    }else{
+      setCard(cls,title,sub.join(' · '));
+      qty.disabled=false;qty.value=ex&&ex.qty!=null?fmtQ(ex.qty):'';qty.focus();qty.select();scan.value=id;
+    }
+  }
+  function save(id,q){scans[norm(id)]={id:id,qty:q,t:Date.now()};persist();render()}
+  function confirmQty(){
+    if(!cur)return;
+    var v=qty.value.trim();
+    if(/^\d{1,5}([.,]\d{1,3})?$/.test(v)){
+      var q=toNum(v),c=cur;save(c.id,q);
+      var bq=c.row?toNum(c.row.qty):null, sub=c.row&&c.row.name?c.id:'', cls='ok';
+      if(bq!=null&&bq!==q){cls='warn';sub='Könyv szerint: '+fmtQ(bq)+', eltérés: '+fmtQ(Math.round((q-bq)*1000)/1000)}
+      setCard(cls,'✓ Mentve: '+fmtQ(q)+' fm',(c.row&&c.row.name?c.row.name+' · ':'')+sub);
+      nextScan();
+    }else if(v.length>=5){qty.value='';processScan(v)}
+    else{beep(false);qty.select()}
+  }
+
+  function missing(){return book?book.rows.filter(function(r){return !scans[r.key]}):[]}
+  function render(){
+    var keys=Object.keys(scans),S=keys.length,st=$('stats');st.innerHTML='';
+    function chip(l,v){var s=el('span',null,l+' ');s.appendChild(el('b',null,v));st.appendChild(s)}
+    chip('Szkennelve:',S);
+    if(book&&book.map){
+      var N=Object.keys(book.map).length,M=keys.filter(function(k){return book.map[k]}).length;
+      chip('Leltárban:',N);chip('Megvan:',M);chip('Nincs meg:',N-M);chip('Leltáron kívüli:',S-M);
+    }
+    var list=keys.map(function(k){return scans[k]}).sort(function(a,b){return b.t-a.t}).slice(0,6),ul=$('recent');ul.innerHTML='';
+    $('recentEmpty').hidden=list.length>0;
+    list.forEach(function(r){
+      var row=book&&book.map?book.map[norm(r.id)]:null,li=el('li');
+      li.appendChild(el('span','id',r.id));li.appendChild(el('span','nm',row?row.name:(book?'Nincs a leltárban':'')));
+      li.appendChild(el('span','q',r.qty!=null?fmtQ(r.qty):'✓'));
+      var b=el('button','ghost mini','Törlés');b.type='button';
+      b.addEventListener('click',function(){delete scans[norm(r.id)];persist();render();scan.focus()});
+      li.appendChild(b);ul.appendChild(li);
+    });
+    $('missBoxWrap').hidden=!book;
+    if(book){var ms=missing();$('missN').textContent=ms.length;var ml=$('missList');ml.innerHTML='';
+      ms.forEach(function(r){var li=el('li');li.appendChild(el('span','id',r.id));li.appendChild(el('span','nm',r.name));ml.appendChild(li)})}
+    $('loaded').textContent=book?'Betöltve: '+book.rows.length+' tétel ('+book.headers.length+' oszlop).':'';
+    if(!$('s3').hidden)renderSum();
+  }
+
+  function renderSum(){
+    var s=$('sum');s.innerHTML='';
+    if(!book){s.appendChild(el('p',null,'Nincs betöltött leltár, ezért a fájl csak a szkennelt tételeket tartalmazza ('+Object.keys(scans).length+' db).'));
+      $('okWrap').hidden=true;$('export').disabled=false;return}
+    var ms=missing(),found=book.rows.length-ms.length,out=Object.keys(scans).filter(function(k){return !book.map[k]}).length;
+    s.appendChild(el('p',null,'Megvan: '+found+' · Nincs meg (Kivezetett lapra kerül): '+ms.length+' · Leltáron kívüli: '+out));
+    var diffs=[];
+    book.rows.forEach(function(r){var sc=scans[r.key],bq=toNum(r.qty);
+      if(sc&&sc.qty!=null&&bq!=null&&sc.qty!==bq)diffs.push(r.id+(r.name?' · '+r.name:'')+': könyv szerint '+fmtQ(bq)+', számolt '+fmtQ(sc.qty))});
+    function addList(t,a){if(!a.length)return;s.appendChild(el('h2',null,t));var u=el('ul');a.forEach(function(x){u.appendChild(el('li',null,x))});s.appendChild(u)}
+    addList('Mennyiségi eltérések ('+diffs.length+')',diffs);
+    addList('Hiányzó tételek ('+ms.length+')',ms.map(function(r){return r.id+(r.name?' · '+r.name:'')}));
+    $('okWrap').hidden=ms.length===0;
+    $('export').disabled=ms.length>0&&!$('okMiss').checked;
+  }
+
+  function conv(v,skip){
+    if(skip)return v;
+    return /^-?(0|[1-9]\d{0,8})([.,]\d+)?$/.test(v)?parseFloat(v.replace(',','.')):v;
+  }
+  function exportXlsx(){
+    var when=function(t){return new Date(t).toLocaleString('hu-HU')},sheets=[];
+    if(book){
+      var H=book.headers,idI=book.i.id,found=[],gone=[];
+      book.rows.forEach(function(r){
+        var base=r.c.map(function(v,i){return conv(v,i===idI)}),sc=scans[r.key];
+        if(sc){
+          var bq=book.i.qty>=0?toNum(r.qty):null,d='';
+          if(sc.qty!=null&&bq!=null)d=Math.round((sc.qty-bq)*1000)/1000;
+          found.push(base.concat(['✓',sc.qty!=null?sc.qty:'',d,when(sc.t)]));
+        }else gone.push(base);
+      });
+      sheets.push({name:'Leltár',rows:[H.concat(['Ellenőrizve','Megszámolt mennyiség','Eltérés','Ellenőrzés ideje'])].concat(found)});
+      sheets.push({name:'Kivezetett',rows:[H].concat(gone)});
+      var ext=[['Azonosító','Megszámolt mennyiség','Időpont']];
+      Object.keys(scans).forEach(function(k){if(!book.map[k]){var sc=scans[k];ext.push([sc.id,sc.qty!=null?sc.qty:'',when(sc.t)])}});
+      sheets.push({name:'Leltáron kívüli',rows:ext});
+    }else{
+      var rr=[['Azonosító','Megszámolt mennyiség','Időpont']];
+      Object.keys(scans).forEach(function(k){var sc=scans[k];rr.push([sc.id,sc.qty!=null?sc.qty:'',when(sc.t)])});
+      sheets.push({name:'Szkennelt',rows:rr});
+    }
+    var d=new Date(),p=function(n){return String(n).padStart(2,'0')};
+    saveFile(new Blob([makeXlsx(sheets)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'leltar_eredmeny_'+d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+'.xlsx');
+  }
+
+  // betöltés
+  function parseTSV(t){
+    return t.replace(/\r/g,'').split('\n').filter(function(l){return l.trim()!==''}).map(function(l){
+      return l.split('\t').map(function(c){c=c.trim();
+        if(c.length>1&&c[0]==='"'&&c[c.length-1]==='"')c=c.slice(1,-1).replace(/""/g,'"');return c});
+    });
+  }
+  function fill(sel,head,none,guess){
+    sel.innerHTML='';
+    if(none){var o=el('option',null,'(nincs)');o.value='-1';sel.appendChild(o)}
+    head.forEach(function(h,i){var o=el('option',null,h||('oszlop '+(i+1)));o.value=i;sel.appendChild(o)});
+    sel.value=String(guess);
+  }
+  function check(){
+    var a=+$('mId').value,seen={},dup=0,empty=0,sp=0,w=$('warn');w.innerHTML='';
+    parsed.slice(1).forEach(function(r){var id=(r[a]||'').trim();
+      if(!id){empty++;return}
+      if(/\s/.test(id))sp++;
+      var k=norm(id);if(seen[k])dup++;seen[k]=1});
+    [[empty,' sorban üres az azonosító (ezeket kihagyja a betöltés).'],
+     [dup,' sorban ismétlődik egy azonosító (ha beolvasod, mindegyik sor „megvan" lesz).'],
+     [sp,' azonosító szóközt tartalmaz belül. Érdemes ellenőrizni, hogy egyezik-e a vonalkóddal.']
+    ].forEach(function(x){if(x[0])w.appendChild(el('div','warnbox',x[0]+x[1]))});
+  }
+  $('paste').addEventListener('input',function(){
+    parsed=parseTSV(this.value);
+    if(parsed.length<2){$('maps').hidden=true;$('apply').hidden=true;$('warn').innerHTML='';return}
+    var h=parsed[0],g=function(re,d){for(var i=0;i<h.length;i++){if(re.test(h[i]))return i}return d};
+    var iId=g(/adag|azonos|vonalk|k[óo]d/i,0),iName=g(/n[ée]v|cikk|megnevez/i,iId===0?Math.min(1,h.length-1):0),iQty=g(/mennyis|k[ée]szlet|fm/i,-1);
+    fill($('mId'),h,false,iId);fill($('mName'),h,true,iName);fill($('mQty'),h,true,iQty);
+    $('maps').hidden=false;$('apply').hidden=false;$('impMsg').textContent=(parsed.length-1)+' sor felismerve.';check();
+  });
+  $('mId').addEventListener('change',function(){if(parsed)check()});
+  $('apply').addEventListener('click',function(){
+    if(!parsed||parsed.length<2)return;
+    var a=+$('mId').value,b=+$('mName').value,q=+$('mQty').value,H=parsed[0],n=H.length;
+    var rows=parsed.slice(1).map(function(r){var c=r.slice(0,n);while(c.length<n)c.push('');
+      return {c:c,id:(c[a]||'').trim(),name:b>=0?c[b]:'',qty:q>=0?c[q]:''}}).filter(function(r){return r.id});
+    book={headers:H,rows:rows,i:{id:a,name:b,qty:q}};
+    try{localStorage.setItem(KB,JSON.stringify(book))}catch(e){}
+    index();$('paste').value='';$('maps').hidden=true;$('apply').hidden=true;$('warn').innerHTML='';
+    $('impMsg').textContent='';render();setStep(2);
+    setCard('idle','Leltár betöltve',rows.length+' tétel. Jöhet a csipogás.');
+  });
+
+  function setStep(n){
+    [1,2,3].forEach(function(i){$('s'+i).hidden=i!==n});
+    document.querySelectorAll('.tab').forEach(function(t){t.setAttribute('aria-selected',+t.dataset.s===n)});
+    if(n!==2)camStop();if(n===2&&!/iPhone|iPad|Android/i.test(navigator.userAgent))scan.focus();if(n===3)renderSum();
+  }
+  document.querySelectorAll('.tab').forEach(function(t){t.addEventListener('click',function(){setStep(+t.dataset.s)})});
+  var reader=null,camCand='',camHits=0,camDone='',camT=0;
+  function camStop(){
+    if(reader){try{reader.reset()}catch(e){}reader=null}
+    $('vbox').hidden=true;$('camStop').hidden=true;$('camBtn').hidden=false;
+  }
+  function camStart(){
+    if(typeof ZXing==='undefined'){setCard('bad','Az olvasókönyvtár nem töltődött be','Ellenőrizd az internetkapcsolatot, és töltsd újra az oldalt.');return}
+    if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){setCard('bad','Nincs kamera-hozzáférés','Az oldalnak https címen kell futnia.');return}
+    var B=ZXing.BarcodeFormat,Hh=new Map();
+    Hh.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[B.CODE_128,B.CODE_39]);
+    Hh.set(ZXing.DecodeHintType.TRY_HARDER,true);
+    reader=new ZXing.BrowserMultiFormatReader(Hh,150);
+    $('vbox').hidden=false;$('camStop').hidden=false;$('camBtn').hidden=true;
+    camCand='';camHits=0;
+    var p=reader.decodeFromConstraints({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false},$('v'),function(res){
+      if(!res||cur)return;
+      var t=res.getText().trim();
+      if(t===camCand)camHits++;else{camCand=t;camHits=1}
+      var known=!!(book&&book.map&&book.map[norm(t)]);
+      if((known||camHits>=2)&&!(t===camDone&&Date.now()-camT<3000)){camDone=t;camT=Date.now();camHits=0;processScan(t,true)}
+    });
+    if(p&&p.catch)p.catch(function(){camStop();setCard('bad','A kamera nem indult el','Engedélyezd a kamerát a böngésző beállításaiban.')});
+  }
+  function dl(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a)}
+  function saveFile(blob,name){
+    var f=null;try{f=new File([blob],name,{type:blob.type})}catch(e){}
+    if(f&&navigator.canShare&&navigator.canShare({files:[f]})){
+      navigator.share({files:[f]}).catch(function(e){if(!e||e.name!=='AbortError')dl(blob,name)});
+    }else dl(blob,name);
+  }
+  function stamp(){var d=new Date(),p=function(n){return String(n).padStart(2,'0')};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())}
+  $('camBtn').addEventListener('click',camStart);
+  $('camStop').addEventListener('click',camStop);
+  $('qtyOk').addEventListener('click',confirmQty);
+  $('qtyNo').addEventListener('click',function(){setCard('idle','Megszakítva','Olvasd be a következő vonalkódot.');nextScan()});
+  $('wfSave').addEventListener('click',function(){
+    var data=JSON.stringify({v:1,book:book?{headers:book.headers,rows:book.rows.map(function(r){return {c:r.c,id:r.id,name:r.name,qty:r.qty}}),i:book.i}:null,scans:scans});
+    saveFile(new Blob([data],{type:'application/json'}),'leltar_munkafajl_'+stamp()+'.json');
+  });
+  $('wfOpen').addEventListener('click',function(){$('wfFile').click()});
+  $('wfFile').addEventListener('change',function(){
+    var inp=this,f=inp.files&&inp.files[0];if(!f)return;
+    var rd=new FileReader();
+    rd.onload=function(){
+      try{
+        var o=JSON.parse(rd.result);
+        if(!o||o.v!==1)throw 0;
+        if(Object.keys(scans).length&&!confirm('A munkafájl felülírja a jelenlegi állapotot. Folytatod?'))return;
+        book=o.book||null;scans=o.scans||{};
+        try{if(book)localStorage.setItem(KB,JSON.stringify(book))}catch(e){}
+        index();persist();render();setStep(2);
+        setCard('idle','Munkafájl megnyitva',(book?book.rows.length+' tétel, ':'')+Object.keys(scans).length+' rögzített csipogás.');
+      }catch(e){setCard('bad','Nem sikerült megnyitni','Ez nem leltározó munkafájl.')}
+    };
+    rd.readAsText(f);inp.value='';
+  });
+  scan.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();processScan(scan.value)}});
+  qty.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){e.preventDefault();confirmQty()}
+    else if(e.key==='Escape'){setCard('idle','Megszakítva','Olvasd be a következő vonalkódot.');nextScan()}
+  });
+  $('okMiss').addEventListener('change',renderSum);
+  $('export').addEventListener('click',exportXlsx);
+  $('newInv').addEventListener('click',function(){
+    if(confirm('Biztosan törlöd az összes eddigi szkennelést? Előbb mentsd le az Excel-fájlt!')){
+      scans={};persist();render();setStep(2);nextScan();setCard('idle','Új leltár','A szkennelések törölve. A betöltött leltár megmaradt.');
+    }
+  });
+
+  load();render();setStep(book?2:1);
+})();
+</script>
+</body>
+</html>
